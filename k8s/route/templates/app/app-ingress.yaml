@@ -1,0 +1,35 @@
+{{- $global := . }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: test.ingress
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    kubernetes.io/ingress.class: "nginx"
+    nginx.ingress.kubernetes.io/rewrite-target: /$2
+    nginx.ingress.kubernetes.io/auth-url: "http://auth-service.{{ .Release.Namespace }}.svc.cluster.local:4001/authorize"
+    nginx.ingress.kubernetes.io/custom-http-errors: "403,401"
+    nginx.ingress.kubernetes.io/use-regex: "true"
+    nginx.ingress.kubernetes.io/default-backend: default-backend
+spec:
+  tls:
+    {{- range $i, $item := .Values.tls }}
+    - hosts:
+        - "{{ $item.hostname }}"
+      secretName: "cert-{{ $item.hostname }}"
+    {{- end }}
+  rules:
+  {{- range $i, $item := .Values.tls }}
+  - host: "{{ $item.hostname }}"
+    http:
+      paths:
+      {{- range $i, $application := $global.Values.applications }}
+      - pathType: Prefix
+        path: "/app/ingress/{{ $application.path }}(/|$)(.*)"
+        backend:
+          service:
+            name: "{{ $application.name }}"
+            port:
+              number: 4001
+      {{- end }}
+  {{- end }}

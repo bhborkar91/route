@@ -1,0 +1,18 @@
+{{- $global := .}}
+{{- range $i, $application := .Values.applications }}
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "{{ $application.name }}-test-connection"
+  namespace: {{ $global.Release.Namespace }}
+  annotations:
+    "helm.sh/hook": test-success
+spec:
+  containers:
+    - name: wget
+      image: busybox
+      command: ['wget']
+      args:  ["{{ $application.name }}:4001/health"]
+  restartPolicy: Never
+---
+{{- end }}

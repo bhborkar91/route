@@ -1,0 +1,59 @@
+{{ $global := . }}
+{{ range $i, $application := .Values.applications -}}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ $application.name }}
+  namespace: {{ $global.Release.Namespace }}
+data:
+  NAME: {{ $application.name }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ $application.name }}
+  namespace: {{ $global.Release.Namespace }}
+  labels:
+    app: {{ $application.name }}
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: {{ $application.name }}
+  template:
+    metadata:
+      labels:
+        app: {{ $application.name }}
+    spec:
+      containers:
+      - name: {{ $application.name }}
+        image: {{ $global.Values.images.application }}
+        envFrom:
+        - configMapRef:
+            name: {{ $application.name }}
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: {{ $application.name }}
+  namespace: {{ $global.Release.Namespace }}
+  labels:
+    app: {{ $application.name }}
+  annotations:
+    bhborkar91/gateway-config: |-
+      {
+        "/{{ $application.path }}": "rest:/"
+      }
+spec:
+  selector:
+    app: {{ $application.name }}
+  ports:
+    - name: rest
+      protocol: TCP
+      port: 4001
+      targetPort: 8080
+---
+{{- end }}

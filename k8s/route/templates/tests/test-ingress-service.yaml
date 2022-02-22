@@ -1,0 +1,55 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-scripts-ingress
+  namespace: {{ .Release.Namespace }}
+data:
+  jsonequals.py: |-
+    import sys, json
+    assert len(sys.argv) >= 3
+    print sys.argv[1], sys.argv[2]
+    assert json.loads(sys.argv[1]) == json.loads(sys.argv[2])
+  {{- range $i, $application := .Values.applications }}
+  test_no_auth-gateway-{{ $application.name }}.sh: |-
+    set -e
+    code=$(curl -sk --output /tmp/output -w '%{http_code}' https://host.docker.internal/app/ingress/{{ $application.path }}/health)
+    echo "Code = $code"
+    test $code == "401"
+    python jsonequals.py "$(cat /tmp/output)" '{"status": "error", "name": "ns1auth", "error": "Not Authorized"}'
+  test_valid_auth-gateway-{{ $application.name }}.sh: |-
+    set -e
+    code=$(curl -sk --output /tmp/output -w '%{http_code}' -H "user: ${AUTH_USER?}" https://host.docker.internal/app/ingress/{{ $application.path }}/health)
+    echo "Code = $code"
+    test $code == "200"
+  {{- end }}
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "test-ingress"
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": test-success
+spec:
+  containers:
+    - name: centos
+      image: centos:7
+      command: ['sh', '/runner/run_tests.sh', '/tests']
+      env:
+      - name: AUTH_USER
+        value: "{{ .Values.auth.user }}"
+      volumeMounts:
+      - mountPath: /tests
+        name: tests
+        readOnly: true
+      - mountPath: /runner
+        name: runner
+        readOnly: true
+  restartPolicy: Never
+  volumes:
+    - name: tests
+      configMap:
+        name: test-scripts-ingress
+    - name: runner
+      configMap:
+        name: test-script-runner

@@ -1,0 +1,53 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: test-scripts
+  namespace: {{ .Release.Namespace }}
+data:
+  test_no_auth.sh: |-
+    set -e
+    code=$(curl -sk --output /dev/null -w '%{http_code}' http://auth-service:4001/authorize)
+    echo "Code = $code"
+    test $code == "401"
+  test_invalid_auth.sh: |-
+    set -e
+    code=$(curl -sk --output /dev/null -w '%{http_code}' -H "user: randomuser" http://auth-service:4001/authorize)
+    echo "Code = $code"
+    test $code == "401"
+  test_valid_auth.sh: |-
+    set -e
+    code=$(curl -sk --output /dev/null -w '%{http_code}' -H "user: ${AUTH_USER?}" http://auth-service:4001/authorize)
+    echo "Code = $code"
+    test $code == "200"
+
+---
+apiVersion: v1
+kind: Pod
+metadata:
+  name: "test-auth"
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    "helm.sh/hook": test-success
+spec:
+  containers:
+    - name: centos
+      image: centos:7
+      command: ['sh', '/runner/run_tests.sh', '/tests']
+      env:
+      - name: AUTH_USER
+        value: "{{ .Values.auth.user }}"
+      volumeMounts:
+      - mountPath: /tests
+        name: tests
+        readOnly: true
+      - mountPath: /runner
+        name: runner
+        readOnly: true
+  restartPolicy: Never
+  volumes:
+    - name: tests
+      configMap:
+        name: test-scripts
+    - name: runner
+      configMap:
+        name: test-script-runner

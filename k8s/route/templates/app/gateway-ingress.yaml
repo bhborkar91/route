@@ -1,0 +1,28 @@
+{{- $global := . }}
+apiVersion: networking.k8s.io/v1
+kind: Ingress
+metadata:
+  name: gateway.ingress
+  namespace: {{ .Release.Namespace }}
+  annotations:
+    nginx.ingress.kubernetes.io/rewrite-target: /gateway/$2
+spec:
+  tls:
+    {{- range $i, $item := .Values.tls }}
+    - hosts:
+        - "{{ $item.hostname }}"
+      secretName: "cert-{{ $item.hostname }}"
+    {{- end }}
+  rules:
+  {{- range $i, $item := .Values.tls }}
+  - host: "{{ $item.hostname }}"
+    http:
+      paths:
+      - pathType: Prefix
+        path: "/app/gate(/|$)(.*)"
+        backend:
+          service:
+            name: "gateway"
+            port:
+              number: 4001
+  {{- end }}

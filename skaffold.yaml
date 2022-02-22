@@ -1,0 +1,65 @@
+apiVersion: skaffold/v2beta6
+kind: Config
+deploy:
+  helm:
+    releases:
+      - name: my-chart
+        chartPath: ./k8s/route
+        artifactOverrides:
+          images.application: bhborkar91/application
+          images.gateway: bhborkar91/gateway
+          images.authservice: bhborkar91/auth-service
+          images.defaultbackend: bhborkar91/default-backend
+        imageStrategy:
+          fqn: {}
+build:
+  local:
+    push: false
+  artifacts:
+    - image: bhborkar91/application
+      context: .
+      docker:
+        dockerfile: Dockerfile
+        buildArgs:
+          sourcePath: apps/application
+      sync:
+        manual:
+          - src: "apps/application/**/*.py"
+            dest: .
+            strip: "apps/application/"
+
+    - image: bhborkar91/gateway
+      context: .
+      docker:
+        dockerfile: Dockerfile
+        buildArgs:
+          sourcePath: apps/gateway
+      sync:
+        manual:
+          - src: "apps/application/**/*.py"
+            dest: .
+            strip: "apps/application/"
+
+    - image: bhborkar91/auth-service
+      context: .
+      docker:
+        dockerfile: Dockerfile
+        buildArgs:
+          sourcePath: apps/auth-service
+      sync:
+        manual:
+          - src: "apps/application/**/*.py"
+            dest: .
+            strip: "apps/application/"
+
+    - image: bhborkar91/default-backend
+      context: .
+      docker:
+        dockerfile: Dockerfile
+        buildArgs:
+          sourcePath: apps/default-backend
+      sync:
+        manual:
+          - src: "apps/default-backend/**/*.py"
+            dest: .
+            strip: "apps/default-backend/"

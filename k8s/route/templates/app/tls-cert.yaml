@@ -1,0 +1,13 @@
+{{- $global := . }}
+{{- range $i, $item := .Values.tls }}
+apiVersion: v1
+data:
+  tls.crt: "{{ $item.cert  | b64enc }}"
+  tls.key: "{{ $item.key  | b64enc }}"
+kind: Secret
+metadata:
+  name: "cert-{{ $item.hostname }}"
+  namespace: "{{ $global.Release.Namespace }}"
+type: kubernetes.io/tls
+---
+{{- end }}

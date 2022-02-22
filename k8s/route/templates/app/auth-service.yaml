@@ -1,0 +1,50 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: auth-service
+  namespace: {{ .Release.Namespace }}
+data:
+  NAME: ns1auth
+  AUTH_USER: {{ .Values.auth.user }}
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: auth-service
+  namespace: {{ .Release.Namespace }}
+  labels:
+    app: auth-service
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: auth-service
+  template:
+    metadata:
+      labels:
+        app: auth-service
+    spec:
+      containers:
+      - name: auth-service
+        image: {{ .Values.images.authservice }}
+        envFrom:
+        - configMapRef:
+            name: auth-service
+        imagePullPolicy: Never
+        ports:
+        - containerPort: 8080
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: auth-service
+  namespace: {{ .Release.Namespace }}
+spec:
+  selector:
+    app: auth-service
+  ports:
+    - name: rest
+      protocol: TCP
+      port: 4001
+      targetPort: 8080
+---
